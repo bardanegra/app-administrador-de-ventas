@@ -1,0 +1,42 @@
+{
+  "name": "Client",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre completo"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Tel\u00e9fono"
+    },
+    "address": {
+      "type": "string",
+      "description": "Direcci\u00f3n"
+    },
+    "city": {
+      "type": "string",
+      "description": "Ciudad"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notas sobre el cliente"
+    },
+    "total_purchases": {
+      "type": "number",
+      "description": "Total de compras realizadas"
+    },
+    "is_online": {
+      "type": "boolean",
+      "default": false,
+      "description": "Cliente registrado online"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
