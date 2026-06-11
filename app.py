@@ -21,10 +21,15 @@ def cargar_datos_ventas():
     try: return pd.read_csv(GSHEETS_URL + "pedido")
     except: return pd.DataFrame(columns=["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"])
 
-# SISTEMA DE LOGIN PROVISORIO
+def cargar_datos_entregas():
+    try: return pd.read_csv(GSHEETS_URL + "stock")
+    except: return pd.DataFrame(columns=["ID_Pedido", "Cliente", "Dirección", "Repartidor", "Estado"])
+
+# CONTROL DE SESIÓN PROVISORIO
 if "usuario_logueado" not in st.session_state: st.session_state.usuario_logueado = None
 if "rol_logueado" not in st.session_state: st.session_state.rol_logueado = None
 
+# --- LOGIN ---
 if st.session_state.usuario_logueado is None:
     st.title("🧪 Control de Perfumería")
     st.subheader("Iniciar Sesión")
@@ -32,13 +37,11 @@ if st.session_state.usuario_logueado is None:
     clave = st.text_input("Contraseña", type="password")
     if st.button("Ingresar", type="primary"):
         if usuario == "admin" and clave == "admin123":
-            st.session_state.usuario_logueado = "admin"
-            st.session_state.rol_logueado = "Admin"
-            st.rerun()
+            st.session_state.usuario_logueado = "admin"; st.session_state.rol_logueado = "Admin"; st.rerun()
         elif usuario == "vendedor" and clave == "vende123":
-            st.session_state.usuario_logueado = "vendedor"
-            st.session_state.rol_logueado = "Vendedor"
-            st.rerun()
+            st.session_state.usuario_logueado = "vendedor"; st.session_state.rol_logueado = "Vendedor"; st.rerun()
+        elif usuario == "repartidor" and clave == "reparte123":
+            st.session_state.usuario_logueado = "repartidor"; st.session_state.rol_logueado = "Repartidor"; st.rerun()
         else: st.error("Usuario o contraseña incorrectos")
 else:
     rol = st.session_state.rol_logueado
@@ -47,27 +50,24 @@ else:
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.usuario_logueado = None; st.session_state.rol_logueado = None; st.rerun()
 
-    # Cargar datos desde Google Sheets
+    # Cargar datos en vivo de todas las pestañas de Google Sheets
     df_clientes = cargar_datos_clientes()
     df_productos = cargar_datos_productos()
     df_ventas = cargar_datos_ventas()
+    df_entregas = cargar_datos_entregas()
 
-    # MENÚ PRINCIPAL UNIFICADO EN UN SOLO ARCHIVO
-    opcion_menu = st.sidebar.radio("Ir a la ventana:", ["📋 Clientes", "📦 Productos y Stock", "💰 Caja Registradora / Ventas"])
+    # MENÚ ADAPTADO AL ROL DEL USUARIO
+    if rol == "Repartidor":
+        opcion_menu = st.sidebar.radio("Ir a la ventana:", ["🚚 Mis Entregas (GPS)"])
+    else:
+        opcion_menu = st.sidebar.radio("Ir a la ventana:", ["📋 Clientes", "📦 Productos y Stock", "💰 Caja Registradora / Ventas", "🚚 Coordinar Entregas"])
 
-    # ==================== VENTANA 1: CLIENTES ====================
+    # ==================== VENTANA: CLIENTES ====================
     if opcion_menu == "📋 Clientes":
-        st.title("📍 Módulo de Clientes y GPS")
+        st.title("📍 Lista de Clientes Registrados")
         st.dataframe(df_clientes, use_container_width=True)
-        st.subheader("🗺️ GPS para Repartidor")
-        if not df_clientes.empty:
-            for index, row in df_clientes.iterrows():
-                direccion_completa = f"{row['Direccion']}, {row['Ciudad']}, Argentina"
-                link_maps = f"https://google.com{urllib.parse.quote(direccion_completa)}"
-                with st.expander(f"📍 {row['Nombre']} - {row['Ciudad']}"):
-                    st.link_button("🗺️ Abrir GPS Google Maps", link_maps, type="primary")
 
-    # ==================== VENTANA 2: PRODUCTOS ====================
+    # ==================== VENTANA: PRODUCTOS ====================
     elif opcion_menu == "📦 Productos y Stock":
         st.title("📦 Inventario de Perfumes")
         st.dataframe(df_productos, use_container_width=True)
@@ -76,47 +76,60 @@ else:
             try:
                 total_costo = (df_productos['Stock'] * df_productos['Costo']).sum()
                 total_venta = (df_productos['Stock'] * df_productos['Precio']).sum()
-                st.columns(3)[0].metric("Costo Inversión", f"${total_costo:,.2f}")
-                st.columns(3)[1].metric("Valor Estantería", f"${total_venta:,.2f}")
-                st.columns(3)[2].metric("Ganancia Esperada", f"${total_venta - total_costo:,.2f}")
-            except: st.info("Agrega datos numéricos en tu Google Sheets para activar las métricas.")
+                st.columns(3).metric("Costo Inversión", f"${total_costo:,.2f}")
+                st.columns(3).metric("Valor Estantería", f"${total_venta:,.2f}")
+                st.columns(3).metric("Ganancia Esperada", f"${total_venta - total_costo:,.2f}")
+            except: st.info("Agrega costos y precios en Google Sheets para activar los gráficos financieros.")
 
-    # ==================== VENTANA 3: CAJA REGISTRADORA (NUEVA) ====================
+    # ==================== VENTANA: CAJA REGISTRADORA ====================
     elif opcion_menu == "💰 Caja Registradora / Ventas":
-        st.title("💰 Caja Registradora e Historial")
+        st.title("💰 Caja Registradora")
+        lista_clientes = [f"{r['Nombre']} {r['Apellido']}" for i, r in df_clientes.iterrows()] if not df_clientes.empty else ["Cliente General"]
+        lista_perfumes = [r['Nombre'] for i, r in df_productos.iterrows()] if not df_productos.empty else ["No hay perfumes"]
         
-        tab1, tab2 = st.tabs(["🛒 Nueva Venta", "📜 Historial de Pedidos"])
+        v_cliente = st.selectbox("Seleccione el Cliente", lista_clientes)
+        v_producto = st.selectbox("Seleccione el Perfume", lista_perfumes)
+        v_cantidad = st.number_input("Cantidad", min_value=1, value=1)
         
-        with tab1:
-            st.subheader("Registrar movimiento de caja")
-            
-            # Listas desplegables inteligentes que leen tu Google Sheets
-            lista_clientes = [f"{r['Nombre']} {r['Apellido']}" for i, r in df_clientes.iterrows()] if not df_clientes.empty else ["Cliente General"]
-            lista_perfumes = [r['Nombre'] for i, r in df_productos.iterrows()] if not df_productos.empty else ["No hay perfumes cargados"]
-            
-            v_cliente = st.selectbox("Seleccione el Cliente", lista_clientes)
-            v_producto = st.selectbox("Seleccione el Perfume", lista_perfumes)
-            v_cantidad = st.number_input("Cantidad de unidades", min_value=1, value=1)
-            
-            # Buscar el precio en vivo según el perfume elegido
-            precio_unitario = 0.0
-            if not df_productos.empty and v_producto in df_productos['Nombre'].values:
-                precio_unitario = float(df_productos[df_productos['Nombre'] == v_producto]['Precio'].values[0])
-            
-            total_operacion = v_cantidad * precio_unitario
-            st.info(f"💵 Precio Unitario: ${precio_unitario:,.2f} | **Total a Cobrar: ${total_operacion:,.2f}**")
-            
-            # Formas de Pago e Interfaz extraídas de tu foto de Base44
-            v_medio = st.selectbox("Método de Pago", ["Efectivo 💵", "Tarjeta de Débito 💳", "Crédito (3 Cuotas) 💳", "Transferencia Bancaria 🏦", "MercadoPago 📱"])
-            v_tipo = st.radio("Modalidad de Entrega", ["Presencial / Local", "Online (Requiere envío)"])
-            
-            if st.button("Confirmar Transacción", type="primary"):
-                st.success(f"¡Venta de {v_producto} por ${total_operacion:,.2f} procesada con éxito!")
-                st.balloons() # Animación festiva de festejo por la venta
+        precio_unitario = 0.0
+        if not df_productos.empty and v_producto in df_productos['Nombre'].values:
+            precio_unitario = float(df_productos[df_productos['Nombre'] == v_producto]['Precio'].values)
+        
+        st.info(f"**Total a Cobrar: ${v_cantidad * precio_unitario:,.2f}**")
+        v_medio = st.selectbox("Método de Pago", ["Efectivo 💵", "Tarjeta de Débito 💳", "Crédito 💳", "Transferencia 🏦", "MercadoPago 📱"])
+        v_tipo = st.radio("Modalidad de Entrega", ["Presencial / Local", "Online (Requiere envío)"])
+        
+        if st.button("Confirmar Transacción", type="primary"):
+            st.success("¡Venta procesada con éxito! Operación registrada en el sistema simulado.")
+            st.balloons()
 
-        with tab2:
-            st.subheader("Registro General de Ventas")
-            if df_ventas.empty:
-                st.info("No hay ventas registradas en la pestaña 'pedido' de tu Google Sheets todavía.")
-            else:
-                st.dataframe(df_ventas, use_container_width=True)
+    # ==================== VENTANA: COORDINAR ENTREGAS (ADMIN Y VENDEDOR) ====================
+    elif opcion_menu == "🚚 Coordinar Entregas":
+        st.title("🚚 Coordinación Logística de Envíos")
+        st.subheader("Historial General de Repartos")
+        if df_entregas.empty:
+            st.info("No hay entregas registradas en la pestaña 'stock' de Google Sheets.")
+        else:
+            st.dataframe(df_entregas, use_container_width=True)
+            
+        st.subheader("Asignar Repartidor a Envíos Pendientes")
+        st.write("Aquí el vendedor podrá elegir qué repartidor lleva cada paquete con un clic.")
+
+    # ==================== VENTANA: MIS ENTREGAS (REPARTIDOR) ====================
+    elif opcion_menu == "🚚 Mis Entregas (GPS)":
+        st.title("🚗 Hoja de Ruta del Repartidor")
+        st.subheader("Envíos Asignados para Entrega")
+        
+        if df_clientes.empty:
+            st.info("No tienes entregas pendientes asignadas para el día de hoy.")
+        else:
+            st.write("Haz clic en el botón de cada cliente para abrir el GPS en tu celular:")
+            for index, row in df_clientes.iterrows():
+                direccion_completa = f"{row['Direccion']}, {row['Ciudad']}, Argentina"
+                link_maps = f"https://google.com{urllib.parse.quote(direccion_completa)}"
+                
+                with st.expander(f"📦 Entrega para: {row['Nombre']} {row['Apellido']} ({row['Ciudad']})"):
+                    st.write(f"🏠 **Dirección:** {row['Direccion']}")
+                    st.write(f"📝 **Notas de envío:** {row['Notas']}")
+                    st.link_button("🗺️ Abrir en Google Maps / GPS", link_maps, type="primary")
+                    st.button("✅ Marcar como Entregado", key=f"entregado_{index}")
