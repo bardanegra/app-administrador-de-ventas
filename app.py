@@ -1,27 +1,26 @@
 import streamlit as st
 import pandas as pd
+import urllib.parse
 
 # CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="centered")
 
-# SISTEMA DE SEGURIDAD (Simulación de Base de Datos temporal)
-if "usuarios" not in st.session_state:
-    st.session_state.usuarios = {
-        "admin": {"clave": "admin123", "rol": "Admin"},
-        "vendedor": {"clave": "vende123", "rol": "Vendedor"},
-        "repartidor": {"clave": "reparte123", "rol": "Repartidor"}
-    }
+# ENLACE DE TU PLANILLA DE GOOGLE SHEETS
+# Reemplazamos el final para que Python pueda leerlo directamente como un archivo CSV
+GSHEETS_URL = "https://google.com"
 
-if "stock" not in st.session_state:
-    st.session_state.stock = [
-        {"Perfume": "Rosa Dulce", "Tamaño": "50ml", "Stock": 15, "Precio": 25.0},
-        {"Perfume": "Cítrico Sol", "Tamaño": "100ml", "Stock": 8, "Precio": 40.0},
-        {"Perfume": "Madera Real", "Tamaño": "100ml", "Stock": 20, "Precio": 45.0}
-    ]
+# FUNCIÓN PARA LEER LOS DATOS DESDE GOOGLE SHEETS
+def cargar_datos_clientes():
+    try:
+        # Intentamos leer la pestaña 'Clientes' de tu Google Sheets
+        url = GSHEETS_URL + "Clientes"
+        df = pd.read_csv(url)
+        return df
+    except Exception as e:
+        # Si da error o está vacía, creamos una estructura de respaldo
+        return pd.DataFrame(columns=["Apellido", "Nombre", "Correo", "Teléfono", "Direccion", "Ciudad", "Notas"])
 
-if "pedidos" not in st.session_state:
-    st.session_state.pedidos = []
-
+# SISTEMA DE SEGURIDAD TEMPORAL PARA COMPROBAR USUARIOS
 if "usuario_logueado" not in st.session_state:
     st.session_state.usuario_logueado = None
 if "rol_logueado" not in st.session_state:
@@ -32,18 +31,27 @@ if st.session_state.usuario_logueado is None:
     st.title("🧪 Control de Perfumería")
     st.subheader("Iniciar Sesión")
     
-    usuario = st.text_input("Usuario")
-    clave = st.text_input("Contraseña", type="password")
+    usuario = st.text_input("Usuario (Prueba: admin)")
+    clave = st.text_input("Contraseña (Prueba: admin123)", type="password")
     
     if st.button("Ingresar", type="primary"):
-        if usuario in st.session_state.usuarios and st.session_state.usuarios[usuario]["clave"] == clave:
-            st.session_state.usuario_logueado = usuario
-            st.session_state.rol_logueado = st.session_state.usuarios[usuario]["rol"]
+        # Credenciales provisorias para que puedas entrar a probar
+        if usuario == "admin" and clave == "admin123":
+            st.session_state.usuario_logueado = "admin"
+            st.session_state.rol_logueado = "Admin"
+            st.rerun()
+        elif usuario == "vendedor" and clave == "vende123":
+            st.session_state.usuario_logueado = "vendedor"
+            st.session_state.rol_logueado = "Vendedor"
+            st.rerun()
+        elif usuario == "repartidor" and clave == "reparte123":
+            st.session_state.usuario_logueado = "repartidor"
+            st.session_state.rol_logueado = "Repartidor"
             st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
 
-# --- SISTEMA ADENTRO (LOGUEADO) ---
+# --- SISTEMA INTERNO ---
 else:
     rol = st.session_state.rol_logueado
     st.sidebar.title(f"👤 {st.session_state.usuario_logueado.upper()}")
@@ -54,103 +62,68 @@ else:
         st.session_state.rol_logueado = None
         st.rerun()
 
-    st.title("✨ Sistema de Gestión a tu Manera")
+    st.title("✨ Módulo de Clientes y Envíos con GPS")
 
-    # ==================== VISTA ADMIN ====================
-    if rol == "Admin":
-        st.header("📊 Panel de Control (Administradora)")
-        
-        # Mostrar el stock actual en una tabla limpia
-        st.subheader("📦 Stock General de Perfumes")
-        df_stock = pd.DataFrame(st.session_state.stock)
-        st.dataframe(df_stock, use_container_width=True)
-        
-        # Resumen financiero rápido
-        total_dinero = sum(p["Stock"] * p["Precio"] for p in st.session_state.stock)
-        st.metric(label="Valor total del stock en estantería", value=f"${total_dinero:,.2f}")
-        
-        # Historial general de entregas
-        st.subheader("🚚 Monitoreo Global de Envíos")
-        if not st.session_state.pedidos:
-            st.info("No hay pedidos registrados en el sistema todavía.")
-        else:
-            df_pedidos = pd.DataFrame(st.session_state.pedidos)
-            st.dataframe(df_pedidos, use_container_width=True)
+    # Cargar los datos desde tu Google Sheets en tiempo real
+    df_clientes = cargar_datos_clientes()
 
-    # ==================== VISTA VENDEDOR ====================
-    elif rol == "Vendedor":
-        st.header("🛒 Módulo de Ventas y Envíos")
-        
-        tab1, tab2 = st.tabs(["Registrar Nueva Venta", "Coordinar Entregas"])
+    # LISTA DE CIUDADES DE TU ZONA (Puedes agregar más a esta lista en el código)
+    ciudades_argentina = ["Neuquén", "Plottier", "Cipolletti", "Centenario", "General Roca", "Cutral Co"]
+
+    # ==================== VISTA ADMIN O VENDEDOR (GESTIONAR CLIENTES) ====================
+    if rol in ["Admin", "Vendedor"]:
+        tab1, tab2 = st.tabs(["📋 Lista de Clientes en Google Sheets", "➕ Registrar Nuevo Cliente"])
         
         with tab1:
-            perfumes_disponibles = [p["Perfume"] for p in st.session_state.stock if p["Stock"] > 0]
-            perfume_sel = st.selectbox("Seleccione el perfume vendido", perfumes_disponibles)
-            tipo_venta = st.radio("Tipo de venta", ["Manual / Presencial", "Online"])
-            direccion = ""
-            
-            if tipo_venta == "Online":
-                direccion = st.text_input("Dirección de envío para el repartidor")
-                
-            cantidad = st.number_input("Cantidad", min_value=1, value=1)
-            
-            if st.button("Confirmar y Guardar Venta", type="primary"):
-                # Buscar perfume en el stock y descontar
-                for p in st.session_state.stock:
-                    if p["Perfume"] == perfume_sel:
-                        if p["Stock"] >= cantidad:
-                            p["Stock"] -= cantidad
-                            
-                            # Si es online, se genera la entrega pendiente
-                            if tipo_venta == "Online":
-                                st.session_state.pedidos.append({
-                                    "ID": len(st.session_state.pedidos) + 1,
-                                    "Perfume": perfume_sel,
-                                    "Cantidad": cantidad,
-                                    "Dirección": direccion,
-                                    "Repartidor": "No asignado",
-                                    "Estado": "⏳ Pendiente"
-                                })
-                                st.success("¡Venta guardada! Envío generado en la pestaña 'Coordinar Entregas'.")
-                            else:
-                                st.success("¡Venta presencial registrada con éxito! Stock actualizado.")
-                            st.rerun()
-                        else:
-                            st.error("No hay suficiente stock disponible.")
+            st.subheader("Clientes Registrados Actuales")
+            if df_clientes.empty:
+                st.info("No hay clientes guardados en tu planilla de Google Sheets.")
+            else:
+                # Mostramos la tabla tal cual está en tu Google Drive
+                st.dataframe(df_clientes, use_container_width=True)
 
         with tab2:
-            st.subheader("📦 Envíos generados sin asignar")
-            pedidos_sin_asignar = [p for p in st.session_state.pedidos if p["Repartidor"] == "No asignado"]
+            st.subheader("Cargar un cliente al negocio")
             
-            if not pedidos_sin_asignar:
-                st.info("No tienes envíos pendientes de asignar.")
-            else:
-                for idx, ped in enumerate(pedidos_sin_asignar):
-                    st.write(f"**Pedido #{ped['ID']}**: {ped['Cantidad']}x {ped['Perfume']} para la dirección: *{ped['Dirección']}*")
-                    # Botón para que la vendedora le asigne el trabajo al repartidor
-                    if st.button(f"Asignar al Repartidor 🚗 (Pedido #{ped['ID']})", key=f"asig_{idx}"):
-                        for real_ped in st.session_state.pedidos:
-                            if real_ped["ID"] == ped["ID"]:
-                                real_ped["Repartidor"] = "repartidor"
-                                real_ped["Estado"] = "🚗 En Ruta"
-                        st.success("¡Pedido asignado al repartidor con éxito!")
-                        st.rerun()
+            # Formulario con los campos exactos de tu planilla
+            apellido = st.text_input("Apellido")
+            nombre = st.text_input("Nombre")
+            correo = st.text_input("Correo electrónico")
+            telefono = st.text_input("Teléfono")
+            direccion = st.text_input("Dirección (Calle y Número)")
+            
+            # Menú desplegable para que la vendedora elija sin equivocarse
+            ciudad_sel = st.selectbox("Ciudad / Localidad", ciudades_argentina)
+            notas = st.text_area("Notas / Indicaciones extras")
+            
+            # Enlace para que la vendedora simule cómo lo guardaría en el Sheets
+            if st.button("Simular Guardado de Cliente", type="primary"):
+                st.success(f"¡Cliente {nombre} {apellido} procesado correctamente!")
+                st.info("Para que escriba directo en tu Google Sheets, en el próximo paso agregaremos las claves de escritura.")
 
-    # ==================== VISTA REPARTIDOR ====================
+    # ==================== VISTA REPARTIDOR (SISTEMA DE GPS AUTOMÁTICO) ====================
     elif rol == "Repartidor":
-        st.header("🚗 Hoja de Ruta (Repartidor)")
-        st.subheader("Mis Entregas Asignadas")
+        st.header("🚗 Hoja de Ruta del Repartidor")
+        st.subheader("Envíos a entregar")
         
-        mis_entregas = [p for p in st.session_state.pedidos if p["Repartidor"] == "repartidor" and p["Estado"] == "🚗 En Ruta"]
-        
-        if not mis_entregas:
-            st.success("🎉 ¡Felicitaciones! No tienes entregas pendientes por el momento.")
+        if df_clientes.empty:
+            st.success("No hay rutas asignadas para hoy.")
         else:
-            for idx, ped in enumerate(mis_entregas):
-                st.info(f"📍 **Entregar en**: {ped['Dirección']} \n\n Pack: {ped['Cantidad']}x {ped['Perfume']}")
-                if st.button(f"✅ Marcar como Entregado", key=f"ent_{idx}"):
-                    for real_ped in st.session_state.pedidos:
-                        if real_ped["ID"] == ped["ID"]:
-                            real_ped["Estado"] = "✅ Entregado"
-                    st.success("¡Entrega completada!")
-                    st.rerun()
+            st.write("Selecciona un cliente para abrir su ubicación en el GPS de tu celular:")
+            
+            # Recorremos la lista de clientes de tu Google Sheets para generar los mapas
+            for index, row in df_clientes.iterrows():
+                # Combinamos dirección y ciudad para armar la búsqueda del mapa
+                direccion_completa = f"{row['Direccion']}, {row['Ciudad']}, Argentina"
+                # Codificamos el texto para que internet lo entienda como un link válido
+                link_maps = f"https://google.com{urllib.parse.quote(direccion_completa)}"
+                
+                # Caja de información para el repartidor
+                with st.expander(f"📍 {row['Nombre']} {row['Apellido']} - {row['Ciudad']}"):
+                    st.write(f"📞 **Teléfono:** {row['Teléfono']}")
+                    st.write(f"🏠 **Dirección:** {row['Direccion']}")
+                    st.write(f"📝 **Notas:** {row['Notas']}")
+                    
+                    # El botón mágico con flecha que abre Google Maps directamente
+                    st.link_button("🗺️ Abrir en Google Maps / GPS", link_maps, type="primary")
+
