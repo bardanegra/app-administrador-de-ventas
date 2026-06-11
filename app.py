@@ -6,36 +6,35 @@ import urllib.parse
 st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="centered")
 
 # ENLACE DE TU PLANILLA DE GOOGLE SHEETS
-# Reemplazamos el final para que Python pueda leerlo directamente como un archivo CSV
 GSHEETS_URL = "https://google.com"
 
-# FUNCIÓN PARA LEER LOS DATOS DESDE GOOGLE SHEETS
+# FUNCIONES PARA LEER LOS DATOS DESDE GOOGLE SHEETS
 def cargar_datos_clientes():
     try:
-        # Intentamos leer la pestaña 'Clientes' de tu Google Sheets
-        url = GSHEETS_URL + "Clientes"
-        df = pd.read_csv(url)
-        return df
-    except Exception as e:
-        # Si da error o está vacía, creamos una estructura de respaldo
+        return pd.read_csv(GSHEETS_URL + "Clientes")
+    except:
         return pd.DataFrame(columns=["Apellido", "Nombre", "Correo", "Teléfono", "Direccion", "Ciudad", "Notas"])
 
-# SISTEMA DE SEGURIDAD TEMPORAL PARA COMPROBAR USUARIOS
+def cargar_datos_productos():
+    try:
+        return pd.read_csv(GSHEETS_URL + "Productos")
+    except:
+        return pd.DataFrame(columns=["Nombre", "Tamaño", "Stock", "Precio", "Costo"])
+
+# USUARIOS PROVISORIOS
 if "usuario_logueado" not in st.session_state:
     st.session_state.usuario_logueado = None
 if "rol_logueado" not in st.session_state:
     st.session_state.rol_logueado = None
 
-# --- PANTALLA DE INGRESO (LOGIN) ---
+# --- LOGIN ---
 if st.session_state.usuario_logueado is None:
     st.title("🧪 Control de Perfumería")
     st.subheader("Iniciar Sesión")
-    
-    usuario = st.text_input("Usuario (Prueba: admin)")
-    clave = st.text_input("Contraseña (Prueba: admin123)", type="password")
+    usuario = st.text_input("Usuario")
+    clave = st.text_input("Contraseña", type="password")
     
     if st.button("Ingresar", type="primary"):
-        # Credenciales provisorias para que puedas entrar a probar
         if usuario == "admin" and clave == "admin123":
             st.session_state.usuario_logueado = "admin"
             st.session_state.rol_logueado = "Admin"
@@ -44,14 +43,10 @@ if st.session_state.usuario_logueado is None:
             st.session_state.usuario_logueado = "vendedor"
             st.session_state.rol_logueado = "Vendedor"
             st.rerun()
-        elif usuario == "repartidor" and clave == "reparte123":
-            st.session_state.usuario_logueado = "repartidor"
-            st.session_state.rol_logueado = "Repartidor"
-            st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
 
-# --- SISTEMA INTERNO ---
+# --- SISTEMA ADENTRO ---
 else:
     rol = st.session_state.rol_logueado
     st.sidebar.title(f"👤 {st.session_state.usuario_logueado.upper()}")
@@ -62,68 +57,56 @@ else:
         st.session_state.rol_logueado = None
         st.rerun()
 
-    st.title("✨ Módulo de Clientes y Envíos con GPS")
-
-    # Cargar los datos desde tu Google Sheets en tiempo real
+    # Traer datos en vivo de Google Sheets
     df_clientes = cargar_datos_clientes()
+    df_productos = cargar_datos_productos()
 
-    # LISTA DE CIUDADES DE TU ZONA (Puedes agregar más a esta lista en el código)
-    ciudades_argentina = ["Neuquén", "Plottier", "Cipolletti", "Centenario", "General Roca", "Cutral Co"]
+    # MENÚ PRINCIPAL EN LA BARRA DE LA IZQUIERDA
+    opcion_menu = st.sidebar.radio("Ir a la ventana:", ["📋 Clientes", "📦 Productos y Stock"])
 
-    # ==================== VISTA ADMIN O VENDEDOR (GESTIONAR CLIENTES) ====================
-    if rol in ["Admin", "Vendedor"]:
-        tab1, tab2 = st.tabs(["📋 Lista de Clientes en Google Sheets", "➕ Registrar Nuevo Cliente"])
+    # ==================== VENTANA 1: CLIENTES ====================
+    if opcion_menu == "📋 Clientes":
+        st.title("📍 Módulo de Clientes y GPS")
+        tab1, tab2 = st.tabs(["Lista de Clientes", "Registrar Nuevo"])
         
         with tab1:
-            st.subheader("Clientes Registrados Actuales")
-            if df_clientes.empty:
-                st.info("No hay clientes guardados en tu planilla de Google Sheets.")
-            else:
-                # Mostramos la tabla tal cual está en tu Google Drive
-                st.dataframe(df_clientes, use_container_width=True)
+            st.dataframe(df_clientes, use_container_width=True)
+            
+            st.subheader("🗺️ GPS para Repartidor (Rutas rápidas)")
+            if not df_clientes.empty:
+                for index, row in df_clientes.iterrows():
+                    direccion_completa = f"{row['Direccion']}, {row['Ciudad']}, Argentina"
+                    link_maps = f"https://google.com{urllib.parse.quote(direccion_completa)}"
+                    with st.expander(f"📍 {row['Nombre']} - {row['Ciudad']}"):
+                        st.write(f"🏠 Dirección: {row['Direccion']}")
+                        st.link_button("🗺️ Abrir GPS Google Maps", link_maps, type="primary")
 
         with tab2:
-            st.subheader("Cargar un cliente al negocio")
-            
-            # Formulario con los campos exactos de tu planilla
-            apellido = st.text_input("Apellido")
-            nombre = st.text_input("Nombre")
-            correo = st.text_input("Correo electrónico")
-            telefono = st.text_input("Teléfono")
-            direccion = st.text_input("Dirección (Calle y Número)")
-            
-            # Menú desplegable para que la vendedora elija sin equivocarse
-            ciudad_sel = st.selectbox("Ciudad / Localidad", ciudades_argentina)
-            notas = st.text_area("Notas / Indicaciones extras")
-            
-            # Enlace para que la vendedora simule cómo lo guardaría en el Sheets
-            if st.button("Simular Guardado de Cliente", type="primary"):
-                st.success(f"¡Cliente {nombre} {apellido} procesado correctamente!")
-                st.info("Para que escriba directo en tu Google Sheets, en el próximo paso agregaremos las claves de escritura.")
+            st.subheader("Cargar nuevo cliente")
+            st.text_input("Apellido")
+            st.text_input("Nombre")
+            st.text_input("Dirección")
+            st.button("Guardar en simulación")
 
-    # ==================== VISTA REPARTIDOR (SISTEMA DE GPS AUTOMÁTICO) ====================
-    elif rol == "Repartidor":
-        st.header("🚗 Hoja de Ruta del Repartidor")
-        st.subheader("Envíos a entregar")
+    # ==================== VENTANA 2: PRODUCTOS ====================
+    elif opcion_menu == "📦 Productos y Stock":
+        st.title("📦 Inventario de Perfumes Fabricados")
         
-        if df_clientes.empty:
-            st.success("No hay rutas asignadas para hoy.")
-        else:
-            st.write("Selecciona un cliente para abrir su ubicación en el GPS de tu celular:")
-            
-            # Recorremos la lista de clientes de tu Google Sheets para generar los mapas
-            for index, row in df_clientes.iterrows():
-                # Combinamos dirección y ciudad para armar la búsqueda del mapa
-                direccion_completa = f"{row['Direccion']}, {row['Ciudad']}, Argentina"
-                # Codificamos el texto para que internet lo entienda como un link válido
-                link_maps = f"https://google.com{urllib.parse.quote(direccion_completa)}"
+        # Mostrar la lista de perfumes cargados en Google Sheets
+        st.dataframe(df_productos, use_container_width=True)
+        
+        # Muestra financiero automático solo para vos (Admin)
+        if rol == "Admin":
+            st.subheader("📊 Reporte Financiero de Fábrica")
+            try:
+                # Python calcula el valor del negocio multiplicando las columnas en vivo
+                total_costo = (df_productos['Stock'] * df_productos['Costo']).sum()
+                total_venta = (df_productos['Stock'] * df_productos['Precio']).sum()
+                ganancia = total_venta - total_costo
                 
-                # Caja de información para el repartidor
-                with st.expander(f"📍 {row['Nombre']} {row['Apellido']} - {row['Ciudad']}"):
-                    st.write(f"📞 **Teléfono:** {row['Teléfono']}")
-                    st.write(f"🏠 **Dirección:** {row['Direccion']}")
-                    st.write(f"📝 **Notas:** {row['Notas']}")
-                    
-                    # El botón mágico con flecha que abre Google Maps directamente
-                    st.link_button("🗺️ Abrir en Google Maps / GPS", link_maps, type="primary")
-
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Costo de Inversión", f"${total_costo:,.2f}")
+                col2.metric("Valor en Estantería", f"${total_venta:,.2f}")
+                col3.metric("Ganancia Esperada", f"${ganancia:,.2f}")
+            except:
+                st.info("Escribe números en las columnas Stock, Precio y Costo de Google Sheets para ver las finanzas.")
