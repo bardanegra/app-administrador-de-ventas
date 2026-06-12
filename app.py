@@ -21,7 +21,7 @@ MEDIOS_PAGO = ["Efectivo 💵", "Tarjeta de Débito 💳", "Crédito (3 Cuotas) 
 TIPOS_VENTA = ["Presencial / Local", "Online (Requiere envío)", "Manual vendedor"]
 
 # =============================================================================
-# MEMORIA DE SESIÓN (ESTADO DE SESIÓN) - EVITA QUE LOS DATOS SE BORREN
+# MEMORIA DE SESIÓN (ESTADO DE SESIÓN) - PERSISTENCIA DE DATOS SIMULADOS
 # =============================================================================
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
@@ -30,13 +30,13 @@ if "usuario_logueado" not in st.session_state:
 if "rol_logueado" not in st.session_state:
     st.session_state["rol_logueado"] = None
 
-# Folios Correlativos iniciales exigidos por el negocio
+# Numeración de gestión industrial solicitada
 if "correlativo_os" not in st.session_state:
-    st.session_state["correlativo_os"] = 4000
+    st.session_state["correlativo_os"] = 4000000000
 if "correlativo_ot" not in st.session_state:
-    st.session_state["correlativo_ot"] = 5000
+    st.session_state["correlativo_ot"] = 5000000000
 
-# Base de datos persistente en la sesión con Datos Iniciales de Prueba
+# Base de datos en memoria con datos de prueba estables
 if "db_usuarios" not in st.session_state:
     st.session_state["db_usuarios"] = pd.DataFrame([
         {"usuario": "admin", "clave": "admin123", "rol": "Administradora"},
@@ -46,13 +46,12 @@ if "db_usuarios" not in st.session_state:
 
 if "db_clientes" not in st.session_state:
     st.session_state["db_clientes"] = pd.DataFrame([
-        {"Nombre": "María López", "Correo": "maria@gmail.com", "Teléfono": "299123456", "Dirección": "Av. Argentina 500", "Ciudad": "Neuquén", "Notas": "Cliente recurrente"}
+        {"Nombre": "María López", "Correo": "maria@gmail.com", "Teléfono": "299123456", "Dirección": "Av. Argentina 500", "Ciudad": "Neuquén", "Notas": "Cliente inicial"}
     ])
 
 if "db_productos" not in st.session_state:
-    # Dejamos un perfume ya listo y otro con fecha de hoy para simular maceración
     st.session_state["db_productos"] = pd.DataFrame([
-        {"Nombre": "Perfume Nuit", "Tamaño": "100ml", "Stock_Lab": 40, "Stock_Tienda": 15, "Precio": 15000.0, "Costo": 6000.0, "Fecha_Creacion": "2026-05-01", "Dias_Maceracion": 10},
+        {"Nombre": "Perfume Nuit", "Tamaño": "100ml", "Stock_Lab": 40, "Stock_Tienda": 15, "Precio": 15000.0, "Costo": 6000.0, "Fecha_Creacion": "2026-06-01", "Dias_Maceracion": 5},
         {"Nombre": "Esencia Floral", "Tamaño": "50ml", "Stock_Lab": 25, "Stock_Tienda": 0, "Precio": 9500.0, "Costo": 3500.0, "Fecha_Creacion": "2026-06-12", "Dias_Maceracion": 15}
     ])
 
@@ -72,7 +71,7 @@ if "notificacion_emergente" not in st.session_state:
     st.session_state["notificacion_emergente"] = None
 
 # =============================================================================
-# SISTEMA DE NOTIFICACIONES Y AUDITORÍA
+# SISTEMA DE NOTIFICACIONES EN TIEMPO REAL (MODALES)
 # =============================================================================
 def registrar_movimiento(detalle_movimiento):
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -111,7 +110,7 @@ if not st.session_state["autenticado"]:
             if not coincidencias.empty:
                 st.session_state["autenticado"] = True
                 st.session_state["usuario_logueado"] = input_usuario
-                st.session_state["rol_logueado"] = coincidencias.iloc[0]["rol"]
+                st.session_state["rol_logueado"] = coincidencias.iloc["rol"].values[0]
                 st.success("¡Ingreso exitoso!")
                 st.balloons()
                 st.rerun()
@@ -181,3 +180,4 @@ else:
                 st.markdown("##### ⏳ Estado de Maduración en Planta")
                 filas_c = []
                 hoy = datetime.now().date()
+                for _, r in st.session_state["db_productos"].iterrows():
