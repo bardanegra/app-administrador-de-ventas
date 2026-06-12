@@ -10,7 +10,7 @@ st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="
 # ENLACES DE TU PLANILLA DE GOOGLE SHEETS (LECTURA)
 GSHEETS_URL = "https://google.com"
 
-# TU ENLACE MÁGICO DE ESCRITURA REAL (El de Apps Script que creaste de forma exitosa)
+# TU ENLACE MÁGICO DE ESCRITURA REAL
 SCRIPT_URL = "https://google.com"
 
 # FUNCIONES PARA LEER DATOS DESDE EL EXCEL DE GOOGLE
@@ -34,15 +34,12 @@ def cargar_datos_ventas():
     try: return pd.read_csv(GSHEETS_URL + "Ventas")
     except: return pd.DataFrame(columns=["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"])
 
-# FUNCIÓN MÁGICA DE ESCRITURA CORREGIDA AL 100%
+# FUNCIÓN MÁGICA DE ESCRITURA REAL
 def guardar_en_google_sheets(pestaña, datos_lista):
     try:
         url_final = f"{SCRIPT_URL}?sheet={pestaña}"
-        # Convertimos la lista de datos a un formato JSON plano e ideal para Google
         headers = {"Content-Type": "application/json"}
         respuesta = requests.post(url_final, data=json.dumps(datos_lista), headers=headers, timeout=15)
-        
-        # Si Google responde exitosamente, devolvemos verdadero
         if respuesta.status_code == 200:
             return True
         return False
@@ -66,7 +63,6 @@ if st.session_state.usuario_logueado is None:
         u_limpio = str(usuario_ingresado).strip()
         c_limpia = str(clave_ingresada).strip()
         
-        # Respaldo local por si las celdas de Sheets están tardando en cargar
         if u_limpio == "admin" and c_limpia == "admin123":
             st.session_state.usuario_logueado = "admin"
             st.session_state.rol_logueado = "Admin"
@@ -130,13 +126,12 @@ else:
             
             if st.button("Guardar Cliente de verdad", type="primary"):
                 if c_nombre and c_direccion:
-                    # Fila ordenada según tus columnas: Nombre, Correo, Teléfono, Dirección, Ciudad, Notas
                     nueva_fila = [c_nombre, c_correo, c_telefono, c_direccion, c_ciudad, c_notas]
                     with st.spinner("Guardando cliente en Google Sheets..."):
                         if guardar_en_google_sheets("Clientes", nueva_fila):
                             st.success(f"🎉 ¡ÉXITO! El cliente '{c_nombre}' se guardó correctamente.")
                             st.balloons()
-                        else: st.error("🛑 Error de comunicación. Verifica los permisos de tu Excel.")
+                        else: st.error("🛑 Error de comunicación. Revisa los permisos de tu Excel.")
 
     # ==================== VENTANA: PRODUCTOS ====================
     elif opcion_menu == "📦 Productos y Stock":
@@ -196,3 +191,7 @@ else:
                     nueva_fila = [nuevo_user, nueva_pass, nuevo_rol]
                     with st.spinner("Guardando en Google Sheets..."):
                         if guardar_en_google_sheets("Usuario", nueva_fila):
+                            st.success(f"✅ ¡CUENTA CREADA! El empleado '{nuevo_user}' ya se guardó correctamente.")
+                            st.balloons()
+                        else:
+                            st.error("🛑 Error técnico de conexión con el puente.")
