@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
-import requests
 import random
 from datetime import datetime, timedelta
-st.set_page_config(page_title="Gestión Perfumes", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="Fábrica de Perfumes", page_icon="🧪", layout="wide")
 CIUDADES_ENTREGA = ["Neuquén", "Plottier", "Cipolletti", "Centenario", "General Roca", "Cutral Co"]
 MEDIOS_PAGO = ["Efectivo 💵", "Tarjeta de Débito 💳", "Crédito (3 Cuotas) 💳", "Transferencia Bancaria 🏦", "MercadoPago 📱"]
 TIPOS_VENTA = ["Presencial / Local", "Online (Requiere envío)", "Manual vendedor"]
@@ -49,12 +48,12 @@ id_m = f"MOV-{random.randint(10000,99999)}"
 nuevo_mov = {"ID_Movimiento": id_m, "Fecha_Hora": ahora, "Usuario": usuario, "Detalle": detalle_movimiento}
 st.session_state["db_movimientos"] = pd.concat([st.session_state["db_movimientos"], pd.DataFrame([nuevo_mov])], ignore_index=True)
 st.session_state["notificacion_emergente"] = {"fecha_hora": ahora, "usuario": usuario, "detalle": detalle_movimiento}
-@st.dialog("🔔 Alerta de Movimiento")
+@st.dialog("🔔 Movimiento Registrado")
 def mostrar_modal_notificacion(datos):
-st.markdown("### ¡Operación Ejecutada!")
-st.write(f"📅 Fecha: {datos['fecha_hora']} | 👤 Usuario: {datos['usuario']}")
+st.write(f"📅 Fecha: {datos['fecha_hora']}")
+st.write(f"👤 Usuario: {datos['usuario']}")
 st.info(f"📝 Detalle: {datos['detalle']}")
-if st.button("Cerrar", use_container_width=True):
+if st.button("Entendido", use_container_width=True):
 st.session_state["notificacion_emergente"] = None
 st.rerun()
 if st.session_state["notificacion_emergente"] is not None:
@@ -63,6 +62,7 @@ if not st.session_state["autenticado"]:
 col1, col2, col3 = st.columns([1,2,1])
 with col2:
 st.title("🧪 Fábrica de Perfumes")
+st.subheader("Control de Planta e Inventarios")
 input_usuario = st.text_input("Usuario")
 input_clave = st.text_input("Contraseña", type="password")
 if st.button("Ingresar Sistema", use_container_width=True):
@@ -114,7 +114,7 @@ st.session_state["correlativo_os"] += 1
 df_prod = st.session_state["db_productos"]
 idx = df_prod[(df_prod["Nombre"] == n_p) & (df_prod["Tamaño"] == t_p)].index
 if not idx.empty:
-st.session_state["db_productos"].at[idx[0], "Stock_Lab"] += c_f
+st.session_state["db_productos"].at[idx, "Stock_Lab"] += c_f
 else:
 nuevo = {"Nombre": n_p, "Tamaño": t_p, "Stock_Lab": c_f, "Stock_Tienda": 0, "Precio": p_p, "Costo": cos_p, "Fecha_Creacion": str(f_c), "Dias_Maceracion": d_m}
 st.session_state["db_productos"] = pd.concat([st.session_state["db_productos"], pd.DataFrame([nuevo])], ignore_index=True)
@@ -200,7 +200,7 @@ if pass_c == c_real:
 df_p = st.session_state["db_productos"]
 idx_p = df_p[df_p["Nombre"] == fila["Producto"]].index
 if not idx_p.empty:
-st.session_state["db_productos"].at[idx_p, "Stock_Tienda"] += fila["Cantidad"]
+st.session_state["db_productos"].at[idx_p[0], "Stock_Tienda"] += fila["Cantidad"]
 st.session_state["db_traspasos"].at[idx, "Estado"] = "Recibido y Confirmado"
 registrar_movimiento(f"Vendedora '{st.session_state['usuario_logueado']}' recibió {fila['Cantidad']} u. de {fila['Producto']} ({fila['ID_Traspaso']}).")
 st.rerun()
@@ -222,14 +222,14 @@ rep_asig = st.selectbox("Asignar Repartidor (Online)", lista_rep if lista_rep el
 if st.form_submit_button("Procesar Venta"):
 df_p = st.session_state["db_productos"]
 idx_prod = df_p[df_p["Nombre"] == perf_s].index
-if not idx_prod.empty and df_p.at[idx_prod, "Stock_Tienda"] >= cant_v:
-st.session_state["db_productos"].at[idx_prod, "Stock_Tienda"] -= cant_v
-precio_u = df_p.at[idx_prod, "Precio"].values[0]
+if not idx_prod.empty and df_p.at[idx_prod[0], "Stock_Tienda"] >= cant_v:
+st.session_state["db_productos"].at[idx_prod[0], "Stock_Tienda"] -= cant_v
+precio_u = df_p.at[idx_prod[0], "Precio"]
 tot_v = float(precio_u) * cant_v
 id_v = f"V-{random.randint(1000,9999)}"
 nuevo_v = {"ID_Venta": id_v, "Cliente": c_nom, "Producto": perf_s, "Cantidad": cant_v, "Total": tot_v, "Medio_Pago": m_pago, "Tipo": t_venta}
 st.session_state["db_ventas"] = pd.concat([st.session_state["db_ventas"], pd.DataFrame([nuevo_v])], ignore_index=True)
-nuevo_c = {"Nombre": c_nom, "Correo": "", "Teléfono": "", "Dirección": c_dir, "Ciudad": c_ciu, "Notas": ""}
+nuevo_c = {"Nombre": c_nom, "Correo": "", "Teléfono": "", "Dirección": c_dir, "Ciudad": c_ciu, "Notes": ""}
 st.session_state["db_clientes"] = pd.concat([st.session_state["db_clientes"], pd.DataFrame([nuevo_c])], ignore_index=True)
 env_msg = ""
 if t_venta == "Online (Requiere envío)":
