@@ -9,11 +9,9 @@ st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="
 
 # ENLACES DE TU PLANILLA DE GOOGLE SHEETS
 GSHEETS_URL = "https://google.com"
+SCRIPT_URL = "https://google.com"
 
-# TU ENLACE MÁGICO DE ESCRITURA ACTUALIZADO
-SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwH67JIytMVOwpAF3IaNBOUX7M4RWsI1qx3bgAYKWJgdmdP83R5pX_DX_APLXv4qoUi/exec"
-
-# FUNCIONES PARA LEER DATOS DESDE GOOGLE SHEETS
+# FUNCIONES PARA LEER DATOS
 def cargar_datos_clientes():
     try: return pd.read_csv(GSHEETS_URL + "Clientes")
     except: return pd.DataFrame(columns=["Apellido", "Nombre", "Correo", "Teléfono", "Direccion", "Ciudad", "Notas"])
@@ -23,25 +21,23 @@ def cargar_datos_productos():
     except: return pd.DataFrame(columns=["Nombre", "Tamaño", "Stock", "Precio", "Costo"])
 
 def cargar_datos_usuarios():
-    try: 
-        df = pd.read_csv(GSHEETS_URL + "Usuario")
-        return df
-    except: 
-        return pd.DataFrame([{"Usuario": "admin", "Clave": "admin123", "Rol": "Admin"}])
+    try: return pd.read_csv(GSHEETS_URL + "Usuario")
+    except: return pd.DataFrame([{"Usuario": "admin", "Clave": "admin123", "Rol": "Admin"}])
 
 def cargar_datos_ventas():
     try: return pd.read_csv(GSHEETS_URL + "Ventas")
     except: return pd.DataFrame(columns=["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"])
 
-# FUNCIÓN PARA ESCRIBIR EN TU PLANILLA EN VIVO
+# FUNCIÓN DE ESCRITURA CON RESPUESTA
 def guardar_en_google_sheets(pestaña, datos_lista):
     try:
         url_final = f"{SCRIPT_URL}?sheet={pestaña}"
-        respuesta = requests.post(url_final, data=json.dumps(datos_lista))
+        # Enviamos los datos y esperamos la respuesta de Google
+        respuesta = requests.post(url_final, data=json.dumps(datos_lista), timeout=10)
         if respuesta.status_code == 200:
             return True
         return False
-    except:
+    except Exception as e:
         return False
 
 # CONTROL DE SESIÓN
@@ -62,9 +58,9 @@ if st.session_state.usuario_logueado is None:
         df_usuarios['Clave'] = df_usuarios['Clave'].astype(str)
         user_row = df_usuarios[df_usuarios['Usuario'] == usuario_ingresado]
         
-        if not user_row.empty and str(user_row.iloc[0]['Clave']) == clave_ingresada:
+        if not user_row.empty and str(user_row.iloc['Clave']) == clave_ingresada:
             st.session_state.usuario_logueado = usuario_ingresado
-            st.session_state.rol_logueado = user_row.iloc[0]['Rol']
+            st.session_state.rol_logueado = user_row.iloc['Rol']
             st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
@@ -75,12 +71,12 @@ else:
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.usuario_logueado = None; st.session_state.rol_logueado = None; st.rerun()
 
-    # Recargar datos desde el Excel de Google en vivo
+    # Recargar datos en vivo
     df_clientes = cargar_datos_clientes()
     df_productos = cargar_datos_productos()
     df_ventas = cargar_datos_ventas()
 
-    # MENÚ ADAPTADO AL ROL
+    # MENÚ
     opciones = ["📋 Clientes", "📦 Productos y Stock", "💰 Caja Registradora / Ventas"]
     if rol == "Admin":
         opciones.append("👥 Gestión de Empleados")
@@ -95,14 +91,6 @@ else:
         
         with tab1:
             st.dataframe(df_clientes, use_container_width=True)
-            st.subheader("🗺️ GPS para Repartidor")
-            if not df_clientes.empty:
-                for index, row in df_clientes.iterrows():
-                    direccion_completa = f"{row['Direccion']}, {row['Ciudad']}, Argentina"
-                    link_maps = f"https://google.com{urllib.parse.quote(direccion_completa)}"
-                    with st.expander(f"📍 {row['Nombre']} {row['Apellido']} - {row['Ciudad']}"):
-                        st.write(f"🏠 Dirección: {row['Direccion']}")
-                        st.link_button("🗺️ Abrir GPS Google Maps", link_maps, type="primary")
 
         with tab2:
             st.subheader("Cargar nuevo cliente")
@@ -117,10 +105,12 @@ else:
             if st.button("Guardar Cliente de verdad", type="primary"):
                 if c_nombre and c_apellido and c_direccion:
                     nueva_fila = [c_nombre, c_apellido, c_correo, c_telefono, c_direccion, c_ciudad, c_notas]
-                    if guardar_en_google_sheets("Clientes", nueva_fila):
-                        st.success(f"¡Cliente {c_nombre} guardado exitosamente en Google Sheets!")
-                        st.rerun()
-                    else: st.error("Error de conexión con Google Sheets.")
+                    with st.spinner("Conectando con Google Sheets..."):
+                        if guardar_en_google_sheets("Clientes", nueva_fila):
+                            st.success(f"🎉 ¡ÉXITO COMPLETO! El cliente '{c_nombre} {c_apellido}' se guardó correctamente en tu Excel.")
+                            st.balloons()
+                        else: st.error("🛑 No se pudo guardar. Revisa que tu Google Sheets tenga permisos públicos.")
+                else: st.warning("Completa los campos obligatorios.")
 
     # ==================== VENTANA: PRODUCTOS ====================
     elif opcion_menu == "📦 Productos y Stock":
@@ -152,11 +142,11 @@ else:
             if st.button("Confirmar Transacción Real", type="primary"):
                 id_v = len(df_ventas) + 1
                 nueva_venta = [id_v, v_cliente, v_producto, v_cantidad, total_operacion, v_medio, v_tipo]
-                if guardar_en_google_sheets("Ventas", nueva_venta):
-                    st.success("¡Venta registrada con éxito en tu Google Sheets!")
-                    st.balloons()
-                    st.rerun()
-                else: st.error("No se pudo escribir en Google Sheets.")
+                with st.spinner("Registrando venta en la base de datos..."):
+                    if guardar_en_google_sheets("Ventas", nueva_venta):
+                        st.success("💰 ¡VENTA CONFIRMADA! Los datos ya se guardaron en la pestaña Ventas.")
+                        st.balloons()
+                    else: st.error("🛑 Error al registrar la venta.")
 
         with tab2:
             st.dataframe(df_ventas, use_container_width=True)
@@ -178,7 +168,13 @@ else:
             if st.button("Guardar Empleado en Google Sheets", type="primary"):
                 if nuevo_user and nueva_pass:
                     nueva_fila = [nuevo_user, nueva_pass, nuevo_rol]
-                    if guardar_en_google_sheets("Usuario", nueva_fila):
-                        st.success(f"¡Usuario '{nuevo_user}' guardado con éxito en tu planilla!")
-                        st.rerun()
-                    else: st.error("Error al escribir el empleado.")
+                    # Cartel de carga para que sepas que el botón está trabajando
+                    with st.spinner("Guardando en la base de datos de Google..."):
+                        if guardar_en_google_sheets("Usuario", nueva_fila):
+                            # CONFIRMACIÓN EXPLÍCITA EN PANTALLA
+                            st.success(f"✅ ¡CUENTA CREADA CON ÉXITO! El empleado '{nuevo_user}' ya tiene acceso asignado como {nuevo_rol}.")
+                            st.balloons() # Lluvia de globos para confirmar visualmente
+                        else: 
+                            st.error("🛑 Error técnico de conexión. Verifica que el script de Google esté bien publicado.")
+                else: 
+                    st.warning("Por favor rellena el usuario y la contraseña.")
