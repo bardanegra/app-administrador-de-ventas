@@ -10,8 +10,8 @@ st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="
 # ENLACES DE TU PLANILLA DE GOOGLE SHEETS (LECTURA)
 GSHEETS_URL = "https://google.com"
 
-# TU ENLACE MÁGICO DE ESCRITURA REAL
-https://script.google.com/macros/s/AKfycbzCfdP5MpHTtZ6orR-qQ3ooKwHVZimrxj3d-Zd-ohXf37JY0xFfTr362r5sBQEDk5c55g/exec
+# TU ENLACE MÁGICO DE ESCRITURA REAL ACTUALIZADO Y PROTEGIDO
+SCRIPT_URL = "https://google.com"
 
 # FUNCIONES PARA LEER DATOS DESDE EL EXCEL DE GOOGLE
 def cargar_datos_clientes():
@@ -131,6 +131,7 @@ else:
                         if guardar_en_google_sheets("Clientes", nueva_fila):
                             st.success(f"🎉 ¡ÉXITO! El cliente '{c_nombre}' se guardó correctamente.")
                             st.balloons()
+                            st.rerun()
                         else: st.error("🛑 Error de comunicación. Revisa los permisos de tu Excel.")
 
     # ==================== VENTANA: PRODUCTOS ====================
@@ -167,6 +168,7 @@ else:
                     if guardar_en_google_sheets("Ventas", nueva_venta):
                         st.success("💰 ¡VENTA CONFIRMADA EN GOOGLE SHEETS!")
                         st.balloons()
+                        st.rerun()
                     else: st.error("🛑 Error al registrar la venta.")
 
         with tab2:
@@ -193,5 +195,5 @@ else:
                         if guardar_en_google_sheets("Usuario", nueva_fila):
                             st.success(f"✅ ¡CUENTA CREADA! El empleado '{nuevo_user}' ya se guardó correctamente.")
                             st.balloons()
-                        else:
-                            st.error("🛑 Error técnico de conexión con el puente.")
+                            st.rerun()
+                        else: st.error("🛑 Error técnico de conexión con el puente.")
