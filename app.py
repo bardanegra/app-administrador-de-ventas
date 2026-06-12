@@ -11,7 +11,7 @@ st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="
 GSHEETS_URL = "https://google.com"
 
 # TU ENLACE MÁGICO DE ESCRITURA REAL
-SCRIPT_URL = "https://google.com"
+https://script.google.com/macros/s/AKfycbzCfdP5MpHTtZ6orR-qQ3ooKwHVZimrxj3d-Zd-ohXf37JY0xFfTr362r5sBQEDk5c55g/exec
 
 # FUNCIONES PARA LEER DATOS DESDE EL EXCEL DE GOOGLE
 def cargar_datos_clientes():
