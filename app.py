@@ -11,7 +11,7 @@ st.title("🧪 Control de Perfumería")
 # ENLACE DE LECTURA DE TU EXCEL
 GSHEETS_URL = "https://google.com"
 
-# FORMULARIO DE GOOGLE DIRECTO (Elimina el puente de Apps Script que daba error)
+# LINK DE ENVIÓ DE TU FORMULARIO REAL DE GOOGLE
 FORM_URL = "https://google.com"
 
 def cargar_datos_usuarios():
@@ -45,10 +45,11 @@ if st.session_state.usuario_logueado is None:
             df_usuarios['clave'] = df_usuarios['clave'].astype(str).str.strip()
             user_row = df_usuarios[df_usuarios['usuario'] == u_limpio]
             
-            if not user_row.empty and str(user_row.iloc[0]['clave']) == c_limpia:
+            if not user_row.empty and str(user_row.iloc['clave']) == c_limpia:
                 st.session_state.usuario_logueado = u_limpio
                 st.rerun()
             else: st.error("Usuario o contraseña incorrectos")
+        else: st.error("Usuario o contraseña incorrectos")
 else:
     st.sidebar.title(f"👤 ADMINISTRADORA")
     if st.sidebar.button("Cerrar Sesión"):
@@ -68,19 +69,21 @@ else:
         nueva_pass = st.text_input("Contraseña", type="password")
         nuevo_rol = st.selectbox("Rol", ["Vendedor", "Repartidor"])
         
-        if st.button("Guardar Empleado", type="primary"):
+        if st.button("Guardar Empleado en Google Sheets", type="primary"):
             if nuevo_user and nueva_pass:
-                # Datos del formulario directo de Google para inyectar la fila
+                # Mapeo exacto de las preguntas de tu formulario
                 form_data = {
-                    'entry.1345678901': nuevo_user.strip().lower(),
-                    'entry.2345678902': nueva_pass.strip(),
-                    'entry.3456789003': nuevo_rol
+                    'entry.277028169': nuevo_user.strip().lower(),
+                    'entry.874404005': nueva_pass.strip(),
+                    'entry.362145326': nuevo_rol
                 }
-                with st.spinner("Guardando..."):
+                with st.spinner("Conectando con tu Google Drive..."):
                     try:
                         requests.post(FORM_URL, data=form_data, timeout=10)
-                        st.success(f"✅ ¡CUENTA CREADA EXITOSAMENTE!")
+                        st.success(f"✅ ¡CUENTA CREADA EXITOSAMENTE EN TU PLANILLA!")
                         st.balloons()
                         st.rerun()
                     except:
-                        st.error("Error al registrar.")
+                        st.error("Error temporal de red al registrar.")
+            else:
+                st.warning("Completa el usuario y la contraseña.")
