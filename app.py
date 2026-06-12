@@ -110,7 +110,7 @@ if not st.session_state["autenticado"]:
             if not coincidencias.empty:
                 st.session_state["autenticado"] = True
                 st.session_state["usuario_logueado"] = input_usuario
-                st.session_state["rol_logueado"] = coincidencias.iloc["rol"].values[0]
+                st.session_state["rol_logueado"] = coincidencias.iloc[0]["rol"]
                 st.success("¡Ingreso exitoso!")
                 st.balloons()
                 st.rerun()
@@ -180,4 +180,5 @@ else:
                 st.markdown("##### ⏳ Estado de Maduración en Planta")
                 filas_c = []
                 hoy = datetime.now().date()
-                for _, r in st.session_state["db_productos"].iterrows():
+                
+                # --- SANGRIAS DE MACERACIÓN CORREGIDAS AQUÍ ---
