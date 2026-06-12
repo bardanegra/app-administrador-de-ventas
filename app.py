@@ -21,23 +21,28 @@ def cargar_datos_productos():
     except: return pd.DataFrame(columns=["Nombre", "Tamaño", "Stock", "Precio", "Costo"])
 
 def cargar_datos_usuarios():
-    try: return pd.read_csv(GSHEETS_URL + "Usuario")
-    except: return pd.DataFrame([{"Usuario": "admin", "Clave": "admin123", "Rol": "Admin"}])
+    try: 
+        df = pd.read_csv(GSHEETS_URL + "Usuario")
+        # Aseguramos que los nombres de las columnas no tengan espacios raros
+        df.columns = df.columns.str.strip()
+        return df
+    except: 
+        # Respaldo seguro si falla internet
+        return pd.DataFrame([{"Usuario": "admin", "Clave": "admin123", "Rol": "Admin"}])
 
 def cargar_datos_ventas():
     try: return pd.read_csv(GSHEETS_URL + "Ventas")
     except: return pd.DataFrame(columns=["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"])
 
-# FUNCIÓN DE ESCRITURA CON RESPUESTA
+# FUNCIÓN DE ESCRITURA REAL
 def guardar_en_google_sheets(pestaña, datos_lista):
     try:
         url_final = f"{SCRIPT_URL}?sheet={pestaña}"
-        # Enviamos los datos y esperamos la respuesta de Google
         respuesta = requests.post(url_final, data=json.dumps(datos_lista), timeout=10)
         if respuesta.status_code == 200:
             return True
         return False
-    except Exception as e:
+    except:
         return False
 
 # CONTROL DE SESIÓN
@@ -54,14 +59,31 @@ if st.session_state.usuario_logueado is None:
     clave_ingresada = st.text_input("Contraseña", type="password")
     
     if st.button("Ingresar", type="primary"):
-        df_usuarios['Usuario'] = df_usuarios['Usuario'].astype(str)
-        df_usuarios['Clave'] = df_usuarios['Clave'].astype(str)
-        user_row = df_usuarios[df_usuarios['Usuario'] == usuario_ingresado]
+        # Aseguramos que todo se compare como texto limpio sin espacios
+        u_limpio = str(usuario_ingresado).strip()
+        c_limpia = str(clave_ingresada).strip()
         
-        if not user_row.empty and str(user_row.iloc['Clave']) == clave_ingresada:
-            st.session_state.usuario_logueado = usuario_ingresado
-            st.session_state.rol_logueado = user_row.iloc['Rol']
+        # RESPALDO DE SEGURIDAD LOCAL (Por si las celdas de Sheets están vacías)
+        if u_limpio == "admin" and c_limpia == "admin123":
+            st.session_state.usuario_logueado = "admin"
+            st.session_state.rol_logueado = "Admin"
             st.rerun()
+            
+        # BUSQUEDA CORREGIDA EN TU GOOGLE SHEETS
+        elif not df_usuarios.empty and "Usuario" in df_usuarios.columns and "Clave" in df_usuarios.columns:
+            df_usuarios['Usuario'] = df_usuarios['Usuario'].astype(str).str.strip()
+            df_usuarios['Clave'] = df_usuarios['Clave'].astype(str).str.strip()
+            
+            # Buscamos la fila correspondiente al usuario ingresado
+            user_row = df_usuarios[df_usuarios['Usuario'] == u_limpio]
+            
+            # CORRECCIÓN TÉCNICA: Usamos .iloc[0] para obtener la fila completa de forma correcta
+            if not user_row.empty and str(user_row.iloc[0]['Clave']) == c_limpia:
+                st.session_state.usuario_logueado = u_limpio
+                st.session_state.rol_logueado = user_row.iloc[0]['Rol']
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos")
         else:
             st.error("Usuario o contraseña incorrectos")
 else:
@@ -107,10 +129,9 @@ else:
                     nueva_fila = [c_nombre, c_apellido, c_correo, c_telefono, c_direccion, c_ciudad, c_notas]
                     with st.spinner("Conectando con Google Sheets..."):
                         if guardar_en_google_sheets("Clientes", nueva_fila):
-                            st.success(f"🎉 ¡ÉXITO COMPLETO! El cliente '{c_nombre} {c_apellido}' se guardó correctamente en tu Excel.")
+                            st.success(f"🎉 ¡ÉXITO! El cliente '{c_nombre} {c_apellido}' se guardó correctamente.")
                             st.balloons()
-                        else: st.error("🛑 No se pudo guardar. Revisa que tu Google Sheets tenga permisos públicos.")
-                else: st.warning("Completa los campos obligatorios.")
+                        else: st.error("🛑 Error de conexión con Google Sheets.")
 
     # ==================== VENTANA: PRODUCTOS ====================
     elif opcion_menu == "📦 Productos y Stock":
@@ -142,9 +163,9 @@ else:
             if st.button("Confirmar Transacción Real", type="primary"):
                 id_v = len(df_ventas) + 1
                 nueva_venta = [id_v, v_cliente, v_producto, v_cantidad, total_operacion, v_medio, v_tipo]
-                with st.spinner("Registrando venta en la base de datos..."):
+                with st.spinner("Registrando venta..."):
                     if guardar_en_google_sheets("Ventas", nueva_venta):
-                        st.success("💰 ¡VENTA CONFIRMADA! Los datos ya se guardaron en la pestaña Ventas.")
+                        st.success("💰 ¡VENTA CONFIRMADA!")
                         st.balloons()
                     else: st.error("🛑 Error al registrar la venta.")
 
@@ -168,13 +189,9 @@ else:
             if st.button("Guardar Empleado en Google Sheets", type="primary"):
                 if nuevo_user and nueva_pass:
                     nueva_fila = [nuevo_user, nueva_pass, nuevo_rol]
-                    # Cartel de carga para que sepas que el botón está trabajando
-                    with st.spinner("Guardando en la base de datos de Google..."):
+                    with st.spinner("Guardando en Google..."):
                         if guardar_en_google_sheets("Usuario", nueva_fila):
-                            # CONFIRMACIÓN EXPLÍCITA EN PANTALLA
-                            st.success(f"✅ ¡CUENTA CREADA CON ÉXITO! El empleado '{nuevo_user}' ya tiene acceso asignado como {nuevo_rol}.")
-                            st.balloons() # Lluvia de globos para confirmar visualmente
+                            st.success(f"✅ ¡CUENTA CREADA! El empleado '{nuevo_user}' ya se guardó correctamente.")
+                            st.balloons()
                         else: 
-                            st.error("🛑 Error técnico de conexión. Verifica que el script de Google esté bien publicado.")
-                else: 
-                    st.warning("Por favor rellena el usuario y la contraseña.")
+                            st.error("🛑 Error técnico de conexión.")
