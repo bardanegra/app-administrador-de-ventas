@@ -62,7 +62,7 @@ if "usuario_logueado" not in st.session_state:
 if "rol_logueado" not in st.session_state:
     st.session_state["rol_logueado"] = None
 
-# Contadores de auditoría regulatoria (Folios Correlativos fijados por negocio)
+# Contadores de auditoría regulatoria (Folios Correlativos)
 if "correlativo_os" not in st.session_state:
     st.session_state["correlativo_os"] = 4000
 if "correlativo_ot" not in st.session_state:
@@ -73,7 +73,8 @@ if "db_usuarios" not in st.session_state:
     st.session_state["db_usuarios"] = pd.DataFrame([
         {"usuario": "admin", "clave": "admin123", "rol": "Administradora"},
         {"usuario": "vane", "clave": "vane123", "rol": "Vendedor"},
-        {"usuario": "repa_juan", "clave": "juan123", "rol": "Repartidor"}
+        {"usuario": "repa_juan", "clave": "juan123", "rol": "Repartidor"},
+        {"usuario": "repa_pedro", "clave": "pedro123", "rol": "Repartidor"}
     ])
 if "db_clientes" not in st.session_state:
     st.session_state["db_clientes"] = pd.DataFrame(columns=["Nombre", "Correo", "Teléfono", "Dirección", "Ciudad", "Notas"])
@@ -96,25 +97,22 @@ if "notificacion_emergente" not in st.session_state:
     st.session_state["notificacion_emergente"] = None
 
 # =============================================================================
-# DECORADOR / FUNCIÓN PARA GENERAR NOTIFICACIONES CON VENTANA EMERGENTE
+# DETECTAR MOVIMIENTO Y ENVIAR ALERTA EMERGENTE
 # =============================================================================
 def registrar_movimiento(detalle_movimiento):
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     usuario = st.session_state["usuario_logueado"] if st.session_state["usuario_logueado"] else "Sistema"
     id_m = f"MOV-{random.randint(10000,99999)}"
     
-    # Agregar al historial general
     nuevo_mov = {"ID_Movimiento": id_m, "Fecha_Hora": ahora, "Usuario": usuario, "Detalle": detalle_movimiento}
     st.session_state["db_movimientos"] = pd.concat([st.session_state["db_movimientos"], pd.DataFrame([nuevo_mov])], ignore_index=True)
     
-    # Setear la ventana emergente para que se renderice al recargar
     st.session_state["notificacion_emergente"] = {
         "fecha_hora": ahora,
         "usuario": usuario,
         "detalle": detalle_movimiento
     }
 
-# Renderizador de la ventana emergente nativa mediante st.dialog
 @st.dialog("🔔 Alerta de Movimiento de Sistema")
 def mostrar_modal_notificacion(datos):
     st.markdown(f"### **¡Operación Ejecutada con Éxito!**")
@@ -125,7 +123,6 @@ def mostrar_modal_notificacion(datos):
         st.session_state["notificacion_emergente"] = None
         st.rerun()
 
-# Invocar modal si existe cola de notificaciones
 if st.session_state["notificacion_emergente"] is not None:
     mostrar_modal_notificacion(st.session_state["notificacion_emergente"])
 
@@ -133,7 +130,7 @@ if st.session_state["notificacion_emergente"] is not None:
 # INTERFAZ DE LOGIN
 # =============================================================================
 if not st.session_state["autenticado"]:
-    col1, col2, col3 = st.columns([1,2,1])
+    col1, col2, col3 = st.columns()
     with col2:
         st.title("🧪 Fábrica de Perfumes")
         st.subheader("Control Operacional de Planta")
@@ -181,3 +178,7 @@ else:
         st.session_state["usuario_logueado"] = None
         st.session_state["rol_logueado"] = None
         st.rerun()
+
+    # =============================================================================
+    # MÓDULOS DE ADMINISTRADORA
+    # ================
