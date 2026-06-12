@@ -59,7 +59,7 @@ st.rerun()
 if st.session_state["notificacion_emergente"] is not None:
 mostrar_modal_notificacion(st.session_state["notificacion_emergente"])
 if not st.session_state["autenticado"]:
-col1, col2, col3 = st.columns([1,2,1])
+col1, col2, col3 = st.columns()
 with col2:
 st.title("🧪 Fábrica de Perfumes")
 st.subheader("Control de Planta e Inventarios")
@@ -229,7 +229,7 @@ tot_v = float(precio_u) * cant_v
 id_v = f"V-{random.randint(1000,9999)}"
 nuevo_v = {"ID_Venta": id_v, "Cliente": c_nom, "Producto": perf_s, "Cantidad": cant_v, "Total": tot_v, "Medio_Pago": m_pago, "Tipo": t_venta}
 st.session_state["db_ventas"] = pd.concat([st.session_state["db_ventas"], pd.DataFrame([nuevo_v])], ignore_index=True)
-nuevo_c = {"Nombre": c_nom, "Correo": "", "Teléfono": "", "Dirección": c_dir, "Ciudad": c_ciu, "Notes": ""}
+nuevo_c = {"Nombre": c_nom, "Correo": "", "Teléfono": "", "Dirección": c_dir, "Ciudad": c_ciu, "Notas": ""}
 st.session_state["db_clientes"] = pd.concat([st.session_state["db_clientes"], pd.DataFrame([nuevo_c])], ignore_index=True)
 env_msg = ""
 if t_venta == "Online (Requiere envío)":
