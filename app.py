@@ -2,36 +2,43 @@ import streamlit as st
 import pandas as pd
 import requests
 import json
+import random
 import urllib.parse
 
 # CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="centered")
 
-# ENLACES DE TU PLANILLA DE GOOGLE SHEETS (LECTURA)
+# ENLACES DE TU PLANILLA DE GOOGLE SHEETS
 GSHEETS_URL = "https://google.com"
+SCRIPT_URL = "https://google.com"
 
-# TU ENLACE MÁGICO DE ESCRITURA REAL ACTUALIZADO Y PROTEGIDO
-SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCfdP5MpHTtZ6orR-qQ3ooKwHVZimrxj3d-Zd-ohXf37JY0xFfTr362r5sBQEDk5c55g/exec"
-
-# FUNCIONES PARA LEER DATOS DESDE EL EXCEL DE GOOGLE
+# FUNCIONES PARA LEER DATOS CON TRUCO ROMPE-CACHÉ (FUERZA LA ACTUALIZACIÓN REAL)
 def cargar_datos_clientes():
-    try: return pd.read_csv(GSHEETS_URL + "Clientes")
+    try: 
+        # Agregamos un número aleatorio al final del link para obligar a Google a dar datos frescos
+        url = f"{GSHEETS_URL}Clientes&cache_buster={random.randint(1, 100000)}"
+        return pd.read_csv(url)
     except: return pd.DataFrame(columns=["Nombre", "Correo", "Teléfono", "Dirección", "Ciudad", "Notas"])
 
 def cargar_datos_productos():
-    try: return pd.read_csv(GSHEETS_URL + "Productos")
+    try: 
+        url = f"{GSHEETS_URL}Productos&cache_buster={random.randint(1, 100000)}"
+        return pd.read_csv(url)
     except: return pd.DataFrame(columns=["Nombre", "Tamaño", "Stock", "Precio", "Costo"])
 
 def cargar_datos_usuarios():
     try: 
-        df = pd.read_csv(GSHEETS_URL + "Usuario")
+        url = f"{GSHEETS_URL}Usuario&cache_buster={random.randint(1, 100000)}"
+        df = pd.read_csv(url)
         df.columns = df.columns.str.strip()
         return df
     except: 
         return pd.DataFrame([{"Usuario": "admin", "Clave": "admin123", "Rol": "Admin"}])
 
 def cargar_datos_ventas():
-    try: return pd.read_csv(GSHEETS_URL + "Ventas")
+    try: 
+        url = f"{GSHEETS_URL}Ventas&cache_buster={random.randint(1, 100000)}"
+        return pd.read_csv(url)
     except: return pd.DataFrame(columns=["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"])
 
 # FUNCIÓN MÁGICA DE ESCRITURA REAL
@@ -50,6 +57,7 @@ def guardar_en_google_sheets(pestaña, datos_lista):
 if "usuario_logueado" not in st.session_state: st.session_state.usuario_logueado = None
 if "rol_logueado" not in st.session_state: st.session_state.rol_logueado = None
 
+# Forzamos la lectura fresca antes del Login
 df_usuarios = cargar_datos_usuarios()
 
 # --- LOGIN ---
@@ -87,10 +95,11 @@ else:
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.usuario_logueado = None; st.session_state.rol_logueado = None; st.rerun()
 
-    # Recargar datos en vivo de Google Sheets
+    # Recargar datos en vivo en cada clic con el rompe-caché activo
     df_clientes = cargar_datos_clientes()
     df_productos = cargar_datos_productos()
     df_ventas = cargar_datos_ventas()
+    df_usuarios = cargar_datos_usuarios()
 
     # MENÚ
     opciones = ["📋 Clientes", "📦 Productos y Stock", "💰 Caja Registradora / Ventas"]
@@ -180,6 +189,7 @@ else:
         tab1, tab2 = st.tabs(["🔒 Empleados Actuales", "➕ Dar de Alta"])
         
         with tab1:
+            # Mostramos la tabla actualizada al instante
             st.dataframe(df_usuarios, use_container_width=True)
 
         with tab2:
@@ -191,9 +201,3 @@ else:
             if st.button("Guardar Empleado en Google Sheets", type="primary"):
                 if nuevo_user and nueva_pass:
                     nueva_fila = [nuevo_user, nueva_pass, nuevo_rol]
-                    with st.spinner("Guardando en Google Sheets..."):
-                        if guardar_en_google_sheets("Usuario", nueva_fila):
-                            st.success(f"✅ ¡CUENTA CREADA! El empleado '{nuevo_user}' ya se guardó correctamente.")
-                            st.balloons()
-                            st.rerun()
-                        else: st.error("🛑 Error técnico de conexión con el puente.")
