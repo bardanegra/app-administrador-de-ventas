@@ -10,10 +10,10 @@ st.set_page_config(page_title="Gestión de Perfumes", page_icon="🧪", layout="
 # ENLACES DE TU PLANILLA DE GOOGLE SHEETS
 GSHEETS_URL = "https://google.com"
 
-# TU ENLACE MÁGICO DE ESCRITURA (El que creaste con Apps Script)
-SCRIPT_URL = "https://google.com"
+# TU ENLACE MÁGICO DE ESCRITURA ACTUALIZADO
+SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwH67JIytMVOwpAF3IaNBOUX7M4RWsI1qx3bgAYKWJgdmdP83R5pX_DX_APLXv4qoUi/exec"
 
-# FUNCIONES PARA LEER DATOS
+# FUNCIONES PARA LEER DATOS DESDE GOOGLE SHEETS
 def cargar_datos_clientes():
     try: return pd.read_csv(GSHEETS_URL + "Clientes")
     except: return pd.DataFrame(columns=["Apellido", "Nombre", "Correo", "Teléfono", "Direccion", "Ciudad", "Notas"])
@@ -23,14 +23,17 @@ def cargar_datos_productos():
     except: return pd.DataFrame(columns=["Nombre", "Tamaño", "Stock", "Precio", "Costo"])
 
 def cargar_datos_usuarios():
-    try: return pd.read_csv(GSHEETS_URL + "Usuario")
-    except: return pd.DataFrame([{"Usuario": "admin", "Clave": "admin123", "Rol": "Admin"}])
+    try: 
+        df = pd.read_csv(GSHEETS_URL + "Usuario")
+        return df
+    except: 
+        return pd.DataFrame([{"Usuario": "admin", "Clave": "admin123", "Rol": "Admin"}])
 
 def cargar_datos_ventas():
     try: return pd.read_csv(GSHEETS_URL + "Ventas")
     except: return pd.DataFrame(columns=["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"])
 
-# FUNCIÓN MÁGICA PARA GUARDAR DATOS REALES EN GOOGLE SHEETS
+# FUNCIÓN PARA ESCRIBIR EN TU PLANILLA EN VIVO
 def guardar_en_google_sheets(pestaña, datos_lista):
     try:
         url_final = f"{SCRIPT_URL}?sheet={pestaña}"
@@ -72,7 +75,7 @@ else:
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.usuario_logueado = None; st.session_state.rol_logueado = None; st.rerun()
 
-    # Cargar datos generales en vivo
+    # Recargar datos desde el Excel de Google en vivo
     df_clientes = cargar_datos_clientes()
     df_productos = cargar_datos_productos()
     df_ventas = cargar_datos_ventas()
@@ -99,11 +102,10 @@ else:
                     link_maps = f"https://google.com{urllib.parse.quote(direccion_completa)}"
                     with st.expander(f"📍 {row['Nombre']} {row['Apellido']} - {row['Ciudad']}"):
                         st.write(f"🏠 Dirección: {row['Direccion']}")
-                        st.write(f"📝 Notas: {row['Notas']}")
                         st.link_button("🗺️ Abrir GPS Google Maps", link_maps, type="primary")
 
         with tab2:
-            st.subheader("Cargar nuevo cliente al Google Sheets")
+            st.subheader("Cargar nuevo cliente")
             c_apellido = st.text_input("Apellido")
             c_nombre = st.text_input("Nombre")
             c_correo = st.text_input("Correo electrónico")
@@ -114,12 +116,11 @@ else:
             
             if st.button("Guardar Cliente de verdad", type="primary"):
                 if c_nombre and c_apellido and c_direccion:
-                    nueva_fila = [c_apellido, c_nombre, c_correo, c_telefono, c_direccion, c_ciudad, c_notas]
+                    nueva_fila = [c_nombre, c_apellido, c_correo, c_telefono, c_direccion, c_ciudad, c_notas]
                     if guardar_en_google_sheets("Clientes", nueva_fila):
                         st.success(f"¡Cliente {c_nombre} guardado exitosamente en Google Sheets!")
                         st.rerun()
                     else: st.error("Error de conexión con Google Sheets.")
-                else: st.warning("Completa los campos obligatorios (Nombre, Apellido y Dirección).")
 
     # ==================== VENTANA: PRODUCTOS ====================
     elif opcion_menu == "📦 Productos y Stock":
@@ -128,7 +129,7 @@ else:
 
     # ==================== VENTANA: CAJA REGISTRADORA ====================
     elif opcion_menu == "💰 Caja Registradora / Ventas":
-        st.title("💰 Caja Registradora e Historial")
+        st.title("💰 Caja Registradora")
         tab1, tab2 = st.tabs(["🛒 Nueva Venta", "📜 Historial de Ventas"])
         
         with tab1:
@@ -181,4 +182,3 @@ else:
                         st.success(f"¡Usuario '{nuevo_user}' guardado con éxito en tu planilla!")
                         st.rerun()
                     else: st.error("Error al escribir el empleado.")
-
