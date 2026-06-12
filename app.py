@@ -14,37 +14,14 @@ st.set_page_config(
 )
 
 # =============================================================================
-# VARIABLES DE CONFIGURACIÓN Y ENLACES (GOOGLE SHEETS / FORMS)
+# VARIABLES DE CONFIGURACIÓN FIJAS
 # =============================================================================
-GSHEET_BASE_URL = "https://google.com" 
-GOOGLE_FORM_USUARIO_URL = "https://google.com"
-
 CIUDADES_ENTREGA = ["Neuquén", "Plottier", "Cipolletti", "Centenario", "General Roca", "Cutral Co"]
 MEDIOS_PAGO = ["Efectivo 💵", "Tarjeta de Débito 💳", "Crédito (3 Cuotas) 💳", "Transferencia Bancaria 🏦", "MercadoPago 📱"]
 TIPOS_VENTA = ["Presencial / Local", "Online (Requiere envío)", "Manual vendedor"]
 
 # =============================================================================
-# FUNCIONES AUXILIARES: LECTURA CON CACHE-BUSTER Y ESCRITURA FORMS
-# =============================================================================
-def cargar_datos_pestana(nombre_pestana):
-    cb = random.randint(100000, 999999)
-    url_final = f"{GSHEET_BASE_URL}?sheet={nombre_pestana}&nocache={cb}"
-    try:
-        columnas_dict = {
-            "Usuario": ["usuario", "clave", "rol"],
-            "Clientes": ["Nombre", "Correo", "Teléfono", "Dirección", "Ciudad", "Notas"],
-            "Productos": ["Nombre", "Tamaño", "Stock_Lab", "Stock_Tienda", "Precio", "Costo", "Fecha_Creacion", "Dias_Maceracion"],
-            "Ventas": ["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"],
-            "Entrega": ["ID_Pedido", "Cliente", "Dirección", "Repartidor", "Estado"],
-            "Traspasos": ["ID_Traspaso", "Producto", "Cantidad", "Vendedora", "Estado"],
-            "Movimientos": ["ID_Movimiento", "Fecha_Hora", "Usuario", "Detalle"]
-        }
-        return pd.DataFrame(columns=columnas_dict.get(nombre_pestana, []))
-    except Exception:
-        return pd.DataFrame()
-
-# =============================================================================
-# MANEJO DEL ESTADO DE LA SESIÓN (AUTENTICACIÓN Y BASE DE DATOS SIMULADA)
+# MEMORIA DE SESIÓN (ESTADO DE SESIÓN) - EVITA QUE LOS DATOS SE BORREN
 # =============================================================================
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
@@ -53,36 +30,50 @@ if "usuario_logueado" not in st.session_state:
 if "rol_logueado" not in st.session_state:
     st.session_state["rol_logueado"] = None
 
+# Folios Correlativos iniciales exigidos por el negocio
 if "correlativo_os" not in st.session_state:
     st.session_state["correlativo_os"] = 4000
 if "correlativo_ot" not in st.session_state:
     st.session_state["correlativo_ot"] = 5000
 
+# Base de datos persistente en la sesión con Datos Iniciales de Prueba
 if "db_usuarios" not in st.session_state:
     st.session_state["db_usuarios"] = pd.DataFrame([
         {"usuario": "admin", "clave": "admin123", "rol": "Administradora"},
         {"usuario": "vane", "clave": "vane123", "rol": "Vendedor"},
         {"usuario": "repa_juan", "clave": "juan123", "rol": "Repartidor"}
     ])
+
 if "db_clientes" not in st.session_state:
-    st.session_state["db_clientes"] = pd.DataFrame(columns=["Nombre", "Correo", "Teléfono", "Dirección", "Ciudad", "Notas"])
-if "db_productos" not in st.session_state:
-    st.session_state["db_productos"] = pd.DataFrame([
-        {"Nombre": "Perfume Nuit", "Tamaño": "100ml", "Stock_Lab": 50, "Stock_Tienda": 10, "Precio": 15000.0, "Costo": 6000.0, "Fecha_Creacion": "2026-06-01", "Dias_Maceracion": 5},
-        {"Nombre": "Esencia Floral", "Tamaño": "50ml", "Stock_Lab": 30, "Stock_Tienda": 5, "Precio": 9500.0, "Costo": 3500.0, "Fecha_Creacion": "2026-06-11", "Dias_Maceracion": 10}
+    st.session_state["db_clientes"] = pd.DataFrame([
+        {"Nombre": "María López", "Correo": "maria@gmail.com", "Teléfono": "299123456", "Dirección": "Av. Argentina 500", "Ciudad": "Neuquén", "Notas": "Cliente recurrente"}
     ])
+
+if "db_productos" not in st.session_state:
+    # Dejamos un perfume ya listo y otro con fecha de hoy para simular maceración
+    st.session_state["db_productos"] = pd.DataFrame([
+        {"Nombre": "Perfume Nuit", "Tamaño": "100ml", "Stock_Lab": 40, "Stock_Tienda": 15, "Precio": 15000.0, "Costo": 6000.0, "Fecha_Creacion": "2026-05-01", "Dias_Maceracion": 10},
+        {"Nombre": "Esencia Floral", "Tamaño": "50ml", "Stock_Lab": 25, "Stock_Tienda": 0, "Precio": 9500.0, "Costo": 3500.0, "Fecha_Creacion": "2026-06-12", "Dias_Maceracion": 15}
+    ])
+
 if "db_ventas" not in st.session_state:
     st.session_state["db_ventas"] = pd.DataFrame(columns=["ID_Venta", "Cliente", "Producto", "Cantidad", "Total", "Medio_Pago", "Tipo"])
+
 if "db_entrega" not in st.session_state:
     st.session_state["db_entrega"] = pd.DataFrame(columns=["ID_Pedido", "Cliente", "Dirección", "Repartidor", "Estado"])
+
 if "db_traspasos" not in st.session_state:
     st.session_state["db_traspasos"] = pd.DataFrame(columns=["ID_Traspaso", "Producto", "Cantidad", "Vendedora", "Estado"])
+
 if "db_movimientos" not in st.session_state:
     st.session_state["db_movimientos"] = pd.DataFrame(columns=["ID_Movimiento", "Fecha_Hora", "Usuario", "Detalle"])
 
 if "notificacion_emergente" not in st.session_state:
     st.session_state["notificacion_emergente"] = None
 
+# =============================================================================
+# SISTEMA DE NOTIFICACIONES Y AUDITORÍA
+# =============================================================================
 def registrar_movimiento(detalle_movimiento):
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     usuario = st.session_state["usuario_logueado"] if st.session_state["usuario_logueado"] else "Sistema"
@@ -108,7 +99,7 @@ if st.session_state["notificacion_emergente"] is not None:
 # INTERFAZ DE LOGIN
 # =============================================================================
 if not st.session_state["autenticado"]:
-    col1, col2, col3 = st.columns([1,2,1])
+    col1, col2, col3 = st.columns()
     with col2:
         st.title("🧪 Fábrica de Perfumes")
         st.subheader("Control Operacional de Planta")
@@ -127,7 +118,7 @@ if not st.session_state["autenticado"]:
             else:
                 st.error("Credenciales incorrectas.")
 else:
-    # MENÚ LATERAL
+    # MENÚ LATERAL SEGÚN ROL
     st.sidebar.title("🧪 Perfumería Panel")
     st.sidebar.write(f"**Usuario:** {st.session_state['usuario_logueado']}")
     st.sidebar.write(f"**Rol:** {st.session_state['rol_logueado']}")
@@ -150,7 +141,7 @@ else:
         st.rerun()
 
     # =============================================================================
-    # MÓDULOS DEL SISTEMA
+    # MÓDULOS DE ADMINISTRADORA
     # =============================================================================
     if seleccion == "🔬 Laboratorio y Fabricación":
         st.header("🔬 Laboratorio Central de Fabricación e Ingresos")
@@ -160,9 +151,9 @@ else:
             with st.form("fabricar_lote_nuevo"):
                 n_p = st.text_input("Nombre de la Fragancia")
                 t_p = st.selectbox("Tamaño", ["30ml", "50ml", "100ml", "200ml"])
-                c_f = st.number_input("Cantidad Fabricada", min_value=1, step=1)
-                p_p = st.number_input("Precio Público ($)", min_value=0.0, step=100.0)
-                cos_p = st.number_input("Costo Manufactura ($)", min_value=0.0, step=100.0)
+                c_f = st.number_input("Cantidad Fabricada", min_value=1, step=1, value=10)
+                p_p = st.number_input("Precio Público ($)", min_value=0.0, step=100.0, value=12000.0)
+                cos_p = st.number_input("Costo Manufactura ($)", min_value=0.0, step=100.0, value=5000.0)
                 f_c = st.date_input("Fecha Creación", value=datetime.now())
                 d_m = st.number_input("Días Maceración", min_value=0, value=15, step=1)
                 
@@ -173,6 +164,20 @@ else:
                         df_prod = st.session_state["db_productos"]
                         idx = df_prod[(df_prod["Nombre"] == n_p) & (df_prod["Tamaño"] == t_p)].index
                         if not idx.empty:
-                            st.session_state["db_productos"].at[idx[0], "Stock_Lab"] += c_f
+                            st.session_state["db_productos"].at[idx, "Stock_Lab"] += c_f
                         else:
                             nuevo = {"Nombre": n_p, "Tamaño": t_p, "Stock_Lab": c_f, "Stock_Tienda": 0, "Precio": p_p, "Costo": cos_p, "Fecha_Creacion": str(f_c), "Dias_Maceracion": d_m}
+                            st.session_state["db_productos"] = pd.concat([st.session_state["db_productos"], pd.DataFrame([nuevo])], ignore_index=True)
+                        registrar_movimiento(f"Emitida {folio_os}. Añadidos {c_f} u. de {n_p} ({t_p}) a Lab.")
+                        st.rerun()
+
+        with tab2:
+            if st.session_state["db_productos"].empty:
+                st.warning("No hay productos en laboratorio.")
+            else:
+                df_u = st.session_state["db_usuarios"]
+                lista_v = df_u[df_u["rol"] == "Vendedor"]["usuario"].tolist()
+                
+                st.markdown("##### ⏳ Estado de Maduración en Planta")
+                filas_c = []
+                hoy = datetime.now().date()
