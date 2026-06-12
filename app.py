@@ -39,10 +39,67 @@ if "db_entrega" not in st.session_state: st.session_state["db_entrega"] = pd.Dat
 if "db_traspasos" not in st.session_state: st.session_state["db_traspasos"] = pd.DataFrame(columns=["ID_Traspaso", "Producto", "Cantidad", "Vendedora", "Estado"])
 if "db_movimientos" not in st.session_state: st.session_state["db_movimientos"] = pd.DataFrame(columns=["ID_Movimiento", "Fecha_Hora", "Usuario", "Detalle"])
 if "notificacion_emergente" not in st.session_state: st.session_state["notificacion_emergente"] = None
-  def registrar_movimiento(detalle_movimiento):
+
+def registrar_movimiento(detalle_movimiento):
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     usuario = st.session_state["usuario_logueado"] if st.session_state["usuario_logueado"] else "Sistema"
     id_m = f"MOV-{random.randint(10000,99999)}"
+    nuevo_mov = {"ID_Movimiento": id_m, "Fecha_Hora": ahora, "Usuario": usuario, "Detalle": detalle_movimiento}
+    st.session_state["db_movimientos"] = pd.concat([st.session_state["db_movimientos"], pd.DataFrame([nuevo_mov])], ignore_index=True)
+    st.session_state["notificacion_emergente"] = {"fecha_hora": ahora, "usuario": usuario, "detalle": detalle_movimiento}
+
+@st.dialog("🔔 Movimiento Registrado")
+def mostrar_modal_notificacion(datos):
+    st.write(f"📅 **Fecha:** {datos['fecha_hora']}")
+    st.write(f"👤 **Usuario:** {datos['usuario']}")
+    st.info(f"📝 **Detalle:** {datos['detalle']}")
+    if st.button("Entendido", use_container_width=True):
+        st.session_state["notificacion_emergente"] = None
+        st.rerun()
+
+if st.session_state["notificacion_emergente"] is not None: 
+    mostrar_modal_notificacion(st.session_state["notificacion_emergente"])
+
+if not st.session_state["autenticado"]:
+    col1, col2, col3 = st.columns()
+    with col2:
+        st.title("🧪 Fábrica de Perfumes")
+        st.subheader("Control de Planta e Inventarios")
+        input_usuario = st.text_input("Usuario")
+        input_clave = st.text_input("Contraseña", type="password")
+        if st.button("Ingresar Sistema", use_container_width=True):
+            df_u = st.session_state["db_usuarios"]
+            coincidencias = df_u[(df_u["usuario"] == input_usuario) & (df_u["clave"] == input_clave)]
+            if not coincidencias.empty:
+                st.session_state["autenticado"] = True
+                st.session_state["usuario_logueado"] = input_usuario
+                st.session_state["rol_logueado"] = coincidencias.iloc[0]["rol"]
+                st.success("¡Ingreso exitoso!")
+                st.balloons()
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas.")
+else:
+    st.sidebar.title("🧪 Perfumería Panel")
+    st.sidebar.write(f"**Usuario:** {st.session_state['usuario_logueado']}")
+    st.sidebar.write(f"**Rol:** {st.session_state['rol_logueado']}")
+    st.sidebar.markdown("---")
+    
+    opciones_menu = []
+    if st.session_state["rol_logueado"] == "Administradora": 
+        opciones_menu = ["🔬 Laboratorio", "📊 Auditoría", "📦 Inventario", "💰 Finanzas", "👥 Empleados"]
+    elif st.session_state["rol_logueado"] == "Vendedor": 
+        opciones_menu = ["📥 Traspasos", "🛒 Caja Registradora", "👥 Clientes"]
+    elif st.session_state["rol_logueado"] == "Repartidor": 
+        opciones_menu = ["🚚 Entregas"]
+        
+    seleccion = st.sidebar.radio("Navegación", opciones_menu)
+    
+    if st.sidebar.button("Cerrar Sesión", use_container_width=True):
+        st.session_state["autenticado"] = False
+        st.session_state["usuario_logueado"] = None
+        st.session_state["rol_logueado"] = None
+        st.rerun()
     nuevo_mov = {"ID_Movimiento": id_m, "Fecha_Hora": ahora, "Usuario": usuario, "Detalle": detalle_movimiento}
     st.session_state["db_movimientos"] = pd.concat([st.session_state["db_movimientos"], pd.DataFrame([nuevo_mov])], ignore_index=True)
     st.session_state["notificacion_emergente"] = {"fecha_hora": ahora, "usuario": usuario, "detalle": detalle_movimiento}
